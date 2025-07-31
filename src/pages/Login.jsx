@@ -1,21 +1,37 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+
 
 const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-100 to-blue-200 flex flex-col">
       {/* Navbar */}
-      <nav className="bg-white shadow-md px-6 py-4 flex justify-between items-center rounded-b-lg">
-        <div className="text-blue-600 font-bold text-xl">CensorPro</div>
-        <ul className="flex gap-6 items-center text-sm text-blue-700 font-medium">
-          <li className="hover:underline cursor-pointer">Features</li>
-          <li className="hover:underline cursor-pointer">Pricing</li>
-          <li className="hover:underline cursor-pointer">Docs</li>
-          <li className="hover:underline cursor-pointer">Contact</li>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-            Sign In
-          </button>
-        </ul>
-      </nav>
+<nav className="bg-white shadow-md px-6 py-4 flex justify-between items-center rounded-b-lg">
+  <div className="text-blue-600 font-bold text-xl">CensorPro</div>
+  <ul className="flex gap-6 items-center text-sm text-blue-700 font-medium">
+    <li>
+      <Link to="/" className="hover:underline">
+        Home
+      </Link>
+    </li>
+
+
+    <li>
+      <Link to="/contact" className="hover:underline">
+        Contact
+      </Link>
+    </li>
+    <li>
+      <Link
+        to="/login"
+        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+      >
+        Sign In
+      </Link>
+    </li>
+  </ul>
+</nav>
+
 
       {/* Login Form */}
       <div className="flex flex-1 justify-center items-center">
@@ -45,8 +61,12 @@ const Login = () => {
           </form>
 
           <p className="text-sm mt-4 text-blue-800">
-            Don’t have an account? <span className="underline cursor-pointer">Register</span>
+            Don’t have an account?{' '}
+            <Link to="/register" className="underline cursor-pointer text-blue-900 hover:text-blue-700">
+              Register
+            </Link>
           </p>
+
         </div>
       </div>
     </div>

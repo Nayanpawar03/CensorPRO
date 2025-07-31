@@ -1,6 +1,8 @@
 import React from 'react';
 import { FaShieldAlt, FaImage, FaCheckCircle } from 'react-icons/fa';
 import censorProLogo from '../assets/CensorProLogo.png'
+import { Link } from 'react-router-dom';
+
 
 const Home = () => {
   return (
@@ -18,14 +20,19 @@ const Home = () => {
           <a href="#" className="hover:underline">Docs</a>
           <a href="#" className="hover:underline">Contact</a>
         </nav>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer">
+        <Link
+          to="/login"
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
+        >
           Sign In
-        </button>
+        </Link>
+
+        
       </header>
 
       {/* Hero Section */}
       <main className="flex-1 flex flex-col justify-center items-center text-center px-6">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 pt-6">
           Empower Your Platform with <span className="text-blue-700">Safe Content</span>
         </h1>
         <p className="max-w-xl text-lg mb-8">
