@@ -39,7 +39,7 @@ const Home = () => {
           CensorPro helps you detect abusive, offensive, or sensitive content in uploaded images instantly. Built for creators, businesses, and communities to stay secure and respectful.
         </p>
         <button className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg hover:bg-blue-700 transition-all cursor-pointer">
-          Try It Now
+          <a href="/Dashboard">Try It Now</a>
         </button>
 
         {/* Feature Highlights */}
