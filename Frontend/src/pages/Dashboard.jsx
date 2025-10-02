@@ -49,7 +49,20 @@ const Dashboard = () => {
       });
       if (!res.ok) throw new Error('Failed to fetch content');
       const data = await res.json();
-      setMyContent(Array.isArray(data) ? data : (data?.items || []));
+      const items = Array.isArray(data) ? data : (data?.items || []);
+      setMyContent(items);
+      // recompute stats from backend data
+      const counts = items.reduce((acc, item) => {
+        const status = String(item.status || '').toLowerCase();
+        const decision = String(item.decision || '').toLowerCase();
+        acc.total += 1;
+        if (status === 'pending' || status === 'in progress') acc.pending += 1;
+        if (status === 'under review' || status === 'under_review') acc.underReview += 1;
+        if (decision === 'approved') acc.approved += 1;
+        if (decision === 'rejected') acc.rejected += 1;
+        return acc;
+      }, { total: 0, approved: 0, pending: 0, underReview: 0, rejected: 0 });
+      setStats(counts);
     } catch (err) {
       // non-blocking
     }
@@ -57,6 +70,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchMyContent();
+    const intervalId = setInterval(fetchMyContent, 10000);
     // derive user name from JWT if available
     try {
       const token = localStorage.getItem('token');
@@ -68,6 +82,7 @@ const Dashboard = () => {
         if (derivedName) setUserName(derivedName);
       }
     } catch {}
+    return () => clearInterval(intervalId);
   }, []);
 
   
@@ -544,23 +559,69 @@ const Dashboard = () => {
                 {myContent.map((item) => {
                   const isImage = !!item.image_path;
                   const imageUrl = isImage ? `${API_BASE_URL}/uploads/${item.image_path}` : null;
+                  // prefer explicit decision from backend; otherwise derive from status
+                  const rawDecision = (item.decision && String(item.decision)) || (item.status && String(item.status)) || 'Pending';
+                  const normalizedDecision = (() => {
+                    const d = String(rawDecision || '').toLowerCase();
+                    if (d === 'approved') return 'Approved';
+                    if (d === 'rejected') return 'Rejected';
+                    if (d === 'under review' || d === 'under_review') return 'Under Review';
+                    if (d === 'pending' || d === 'in progress') return 'Pending';
+                    if (d === 'done' || d === 'completed') return 'Pending';
+                    return rawDecision;
+                  })();
+                  // normalize backend status for the top badge
+                  const normalizedStatus = (() => {
+                    const s = String(item.status || '').toLowerCase();
+                    if (s === 'pending' || s === 'in progress') return 'Pending';
+                    if (s === 'done' || s === 'completed') return 'Done';
+                    if (s === 'under review' || s === 'under_review') return 'Under Review';
+                    return item.status || 'Pending';
+                  })();
+                  const decisionStyles =
+                    normalizedDecision === 'Approved'
+                      ? 'bg-green-100 text-green-700 border-green-200'
+                      : normalizedDecision === 'Rejected'
+                        ? 'bg-red-100 text-red-700 border-red-200'
+                        : normalizedDecision === 'Under Review'
+                          ? 'bg-orange-100 text-orange-700 border-orange-200'
+                          : 'bg-blue-100 text-blue-700 border-blue-200';
+                  const containerStyles =
+                    normalizedDecision === 'Approved'
+                      ? 'bg-green-50 border-green-100'
+                      : normalizedDecision === 'Rejected'
+                        ? 'bg-red-50 border-red-100'
+                        : normalizedDecision === 'Under Review'
+                          ? 'bg-orange-50 border-orange-100'
+                          : 'bg-blue-50 border-blue-100';
+                  const expertResponse = item.expert_response || 'Awaiting expert review';
+                  // status-specific styles for top-right badge
+                  const statusStyles =
+                    normalizedStatus === 'Done'
+                      ? 'bg-green-100 text-green-700 border-green-200'
+                      : normalizedStatus === 'Under Review'
+                        ? 'bg-orange-100 text-orange-700 border-orange-200'
+                        : 'bg-blue-100 text-blue-700 border-blue-200';
                   return (
-                    <div key={item.id || item._id} className="border border-blue-100 rounded-lg p-4 bg-blue-50">
+                    <div key={item.id || item._id} className={`rounded-xl p-4 shadow-sm border ${containerStyles}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-blue-900">Content</h3>
+                        <span className={`text-xs px-2 py-1 rounded-full border ${statusStyles}`}>{normalizedStatus}</span>
+                      </div>
                       <div className="mb-3">
                         {isImage ? (
                           <img src={imageUrl} alt="uploaded" className="w-full h-40 object-cover rounded-md" />
                         ) : (
-                          <p className="text-blue-900 whitespace-pre-wrap break-words">{item.text_content}</p>
+                          <p className="text-blue-900 whitespace-pre-wrap break-words bg-blue-50 rounded-md p-3">{item.text_content}</p>
                         )}
                       </div>
-                      <div className="text-sm space-y-1">
-                        <div><span className="font-medium">Status:</span> {item.status}</div>
-                        {item.expert_response && (
-                          <div><span className="font-medium">Expert Response:</span> {item.expert_response}</div>
-                        )}
-                        {item.decision && (
-                          <div><span className="font-medium">Decision:</span> {item.decision}</div>
-                        )}
+                      <div className="border-t border-blue-100 pt-3">
+                        <div className="text-sm text-blue-700 mb-1 font-medium">Expert Response</div>
+                        <p className="text-sm text-blue-900 whitespace-pre-wrap break-words">{expertResponse}</p>
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="text-sm text-blue-700 font-medium">Decision</div>
+                          <span className={`text-xs px-2 py-1 rounded-full border ${decisionStyles}`}>{normalizedDecision}</span>
+                        </div>
                       </div>
                     </div>
                   );

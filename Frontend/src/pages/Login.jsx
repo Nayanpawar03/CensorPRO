@@ -23,7 +23,7 @@ const Login = () => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1] || ''));
       const isAdmin = payload?.role === 'admin' || payload?.isAdmin === true;
-      navigate(isAdmin ? '/dashboard?admin=1' : '/dashboard', { replace: true });
+      navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
     } catch {
       navigate('/dashboard', { replace: true });
     }

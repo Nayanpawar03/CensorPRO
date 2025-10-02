@@ -5,6 +5,7 @@ import {
   getAdminQueue,
   reviewContent,
   upload,
+  getAdminStats,
 } from "../controllers/contentController.js";
 import { authenticateJWT, isAdmin } from "../middlewares/authMiddleware.js";
 
@@ -18,6 +19,9 @@ router.get("/my-content", authenticateJWT, getUserContent);
 
 // Admin queue
 router.get("/admin/queue", authenticateJWT, isAdmin, getAdminQueue);
+
+// Admin stats
+router.get("/admin/stats", authenticateJWT, isAdmin, getAdminStats);
 
 // Admin review
 router.post("/admin/review/:id", authenticateJWT, isAdmin, reviewContent);

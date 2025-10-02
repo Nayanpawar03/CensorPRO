@@ -20,16 +20,16 @@ export const upload = multer({ storage });
 export const uploadContent = async (req, res) => {
   const userId = req.user.id;
   const text_content = req.body.text_content || null;
-  const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+  const image_path = req.file ? `/uploads/${req.file.filename}` : null;
 
-  if ((!text_content && !image_url) || (text_content && image_url)) {
+  if ((!text_content && !image_path) || (text_content && image_path)) {
     return res.status(400).json({ error: "Upload either text or image, not both" });
   }
 
   try {
     const result = await pool.query(
-      "INSERT INTO content (user_id, text_content, image_url, status) VALUES ($1,$2,$3,'pending') RETURNING *",
-      [userId, text_content, image_url]
+      "INSERT INTO content (user_id, text_content, image_path, status) VALUES ($1,$2,$3,'pending') RETURNING *",
+      [userId, text_content, image_path]
     );
     res.json({ success: true, content: result.rows[0] });
   } catch (err) {
@@ -79,5 +79,25 @@ export const reviewContent = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error sending admin response" });
+  }
+};
+
+// Admin stats summary
+export const getAdminStats = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status='pending')::int AS pending,
+        COUNT(*) FILTER (WHERE status='done')::int AS done,
+        COUNT(*) FILTER (WHERE status='under review')::int AS under_review,
+        COUNT(*) FILTER (WHERE decision='Approved')::int AS approved,
+        COUNT(*) FILTER (WHERE decision='Rejected')::int AS rejected
+      FROM content
+    `);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching admin stats' });
   }
 };
