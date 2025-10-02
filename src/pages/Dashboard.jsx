@@ -165,14 +165,35 @@ const Dashboard = () => {
     setModerationResults(null);
     setLastModerationResult(null);
 
-    // For now, just simulate a response
-    setTimeout(() => {
-      const isSafe = !textToModerate.toLowerCase().includes('badword'); // Simple check
-      const result = isSafe ? '✅ Content is safe.' : '⚠️ Inappropriate content detected!';
+    try {
+      const response = await fetch('https://upgraded-telegram-69gjq6qj545vc474j-8000.app.github.dev/moderate-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: textToModerate })
+      });
+
+      const data = await response.json();
+      
+      // Find the prediction with the highest score
+      const highestPrediction = data.predictions.reduce((prev, current) => 
+        current.score > prev.score ? current : prev
+      );
+
+      const result = highestPrediction.label === 'safe' && highestPrediction.score > 0.5
+        ? '✅ Content is safe.'
+        : `⚠️ Inappropriate content detected! (${highestPrediction.label}: ${(highestPrediction.score * 100).toFixed(1)}%)`;
+
       setLastModerationResult(result);
-      setModerationResults({ textResult: result });
+      setModerationResults(data);
+    } catch (error) {
+      console.error('Error moderating text:', error);
+      setModerationResults({ error: 'Failed to moderate text.' });
+      setLastModerationResult('Error during moderation');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   // Header component for the top navigation bar, defined inside Dashboard
@@ -367,7 +388,28 @@ const Dashboard = () => {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
                 <h2 className="text-xl font-semibold mb-4">Detailed Moderation Results</h2>
                 <p className="text-lg font-medium text-blue-900">
-                  {moderationType === 'image' ? getModerationSummary(moderationResults) : moderationResults.textResult}
+                  {moderationType === 'image' ? getModerationSummary(moderationResults) : 
+                   moderationResults.error ? moderationResults.error : 
+                   <div className="space-y-2">
+                     <p>Input text: {moderationResults.input}</p>
+                     <div className="mt-4">
+                       {moderationResults.predictions?.map((pred, idx) => (
+                         <div key={idx} className={`mt-2 p-2 rounded ${pred.label === 'safe' ? 'bg-green-50' : 'bg-red-50'}`}>
+                           <span className="font-semibold">{pred.label}:</span> {(pred.score * 100).toFixed(1)}%
+                         </div>
+                       ))}
+                     </div>
+                     <div className="mt-6">
+                       <details className="bg-gray-50 rounded-lg p-4">
+                         <summary className="font-medium text-blue-600 cursor-pointer hover:text-blue-700">
+                           View Raw JSON
+                         </summary>
+                         <pre className="mt-4 bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap">
+                           <code>{JSON.stringify(moderationResults, null, 2)}</code>
+                         </pre>
+                       </details>
+                     </div>
+                   </div>}
                 </p>
                 {/* {moderationType === 'image' && (
                   <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-x-auto">
