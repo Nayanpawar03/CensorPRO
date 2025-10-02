@@ -8,6 +8,8 @@ const Dashboard = () => {
   const [moderationResults, setModerationResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastModerationResult, setLastModerationResult] = useState(null);
+  const [moderationType, setModerationType] = useState('image'); // 'image' or 'text'
+  const [textToModerate, setTextToModerate] = useState('');
   const [stats, setStats] = useState({
     total: 0,
     approved: 0,
@@ -156,6 +158,23 @@ const Dashboard = () => {
     }
   };
 
+  const handleTextModeration = async () => {
+    if (!textToModerate) return;
+
+    setLoading(true);
+    setModerationResults(null);
+    setLastModerationResult(null);
+
+    // For now, just simulate a response
+    setTimeout(() => {
+      const isSafe = !textToModerate.toLowerCase().includes('badword'); // Simple check
+      const result = isSafe ? '✅ Content is safe.' : '⚠️ Inappropriate content detected!';
+      setLastModerationResult(result);
+      setModerationResults({ textResult: result });
+      setLoading(false);
+    }, 1500);
+  };
+
   // Header component for the top navigation bar, defined inside Dashboard
   const Header = () => (
     <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center rounded-b-xl">
@@ -264,34 +283,75 @@ const Dashboard = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Upload Content Section */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-              <h2 className="text-xl font-semibold mb-6">Upload New Content</h2>
-              <div className="border-2 border-dashed border-blue-200 rounded-xl p-16 text-center text-blue-700">
-                <Upload className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-                <p className="text-lg font-medium">Drop files here to moderate</p>
-                <p className="text-sm mt-1 mb-4">Or click to select files from your computer</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="image-upload"
-                />
-                <label
-                  htmlFor="image-upload"
-                  className="bg-blue-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition-colors cursor-pointer"
-                >
-                  Select Image
+              <h2 className="text-xl font-semibold mb-6">Content Moderation</h2>
+
+              {/* Toggle for Image/Text Moderation */}
+              <div className="flex items-center justify-center mb-6">
+                <span className="mr-3 text-blue-700 font-medium">Image Moderation</span>
+                <label htmlFor="toggle" className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      id="toggle"
+                      className="sr-only peer"
+                      checked={moderationType === 'text'}
+                      onChange={() => setModerationType(moderationType === 'image' ? 'text' : 'image')}
+                    />
+                    <div className="block bg-blue-300 w-14 h-8 rounded-full peer-checked:bg-blue-600"></div>
+                    <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-all duration-300 ease-in-out peer-checked:translate-x-full"></div>
+                  </div>
                 </label>
-                {selectedImage && <p className="mt-2 text-sm">Selected: {selectedImage.name}</p>}
-                <button
-                  onClick={handleImageModeration}
-                  disabled={!selectedImage || loading}
-                  className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Moderating...' : 'Moderate Image'}
-                </button>
-                <p className="text-xs mt-4">Supports images</p>
+                <span className="ml-3 text-blue-700 font-medium">Text Moderation</span>
               </div>
+
+              {moderationType === 'image' ? (
+                <div className="border-2 border-dashed border-blue-200 rounded-xl p-16 text-center text-blue-700">
+                  <Upload className="mx-auto h-12 w-12 text-blue-600 mb-4" />
+                  <p className="text-lg font-medium">Drop files here to moderate</p>
+                  <p className="text-sm mt-1 mb-4">Or click to select files from your computer</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="bg-blue-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition-colors cursor-pointer"
+                  >
+                    Select Image
+                  </label>
+                  {selectedImage && <p className="mt-2 text-sm">Selected: {selectedImage.name}</p>}
+                  <button
+                    onClick={handleImageModeration}
+                    disabled={!selectedImage || loading}
+                    className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Moderating...' : 'Moderate Image'}
+                  </button>
+                  <p className="text-xs mt-4">Supports images</p>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-blue-200 rounded-xl p-8 text-center text-blue-700">
+                  <FileText className="mx-auto h-12 w-12 text-blue-600 mb-4" />
+                  <p className="text-lg font-medium mb-4">Enter text to moderate</p>
+                  <textarea
+                    className="w-full p-4 border border-blue-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-900"
+                    rows="6"
+                    placeholder="Type your sentences here..."
+                    value={textToModerate}
+                    onChange={(e) => setTextToModerate(e.target.value)}
+                  ></textarea>
+                  <button
+                    onClick={handleTextModeration}
+                    disabled={!textToModerate || loading}
+                    className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Moderating...' : 'Moderate Text'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {lastModerationResult && (
@@ -307,8 +367,13 @@ const Dashboard = () => {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
                 <h2 className="text-xl font-semibold mb-4">Detailed Moderation Results</h2>
                 <p className="text-lg font-medium text-blue-900">
-                  {getModerationSummary(moderationResults)}
+                  {moderationType === 'image' ? getModerationSummary(moderationResults) : moderationResults.textResult}
                 </p>
+                {/* {moderationType === 'image' && (
+                  <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-x-auto">
+                    <code>{JSON.stringify(moderationResults, null, 2)}</code>
+                  </pre>
+                )} */}
               </div>
             )}
           </div>
