@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Upload, CheckCircle, Clock, AlertTriangle, XCircle, FileText, Video, ImageIcon, Settings, User, Menu } from 'lucide-react';
 import censorProLogo from '../assets/CensorProLogo.png'
 
@@ -10,6 +10,10 @@ const Dashboard = () => {
   const [lastModerationResult, setLastModerationResult] = useState(null);
   const [moderationType, setModerationType] = useState('image'); // 'image' or 'text'
   const [textToModerate, setTextToModerate] = useState('');
+  const [aiModerationResult, setAiModerationResult] = useState(null);
+  const [submitMessage, setSubmitMessage] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [myContent, setMyContent] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
     approved: 0,
@@ -18,10 +22,55 @@ const Dashboard = () => {
     rejected: 0
   });
 
-  const [recentActivity, setRecentActivity] = useState([
-    // { id: 1, filename: "summer_vacation.jpg", status: "Approved", date: "2024-01-15", icon: ImageIcon },
-  ]);
+  const [recentActivity, setRecentActivity] = useState([]);
 
+  const API_BASE_URL = useMemo(() => (
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+  ), []);
+
+  const [userName, setUserName] = useState('');
+
+  const getAuthToken = () => {
+    try {
+      return localStorage.getItem('token');
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchMyContent = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/content/my-content`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error('Failed to fetch content');
+      const data = await res.json();
+      setMyContent(Array.isArray(data) ? data : (data?.items || []));
+    } catch (err) {
+      // non-blocking
+    }
+  };
+
+  useEffect(() => {
+    fetchMyContent();
+    // derive user name from JWT if available
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payloadBase64 = token.split('.')[1] || '';
+        const payloadStr = atob(payloadBase64);
+        const payload = JSON.parse(payloadStr || '{}');
+        const derivedName = payload?.name || payload?.email || '';
+        if (derivedName) setUserName(derivedName);
+      }
+    } catch {}
+  }, []);
+
+  
   const getModerationSummary = (results) => {
     if (!results) return null;
 
@@ -106,53 +155,79 @@ const Dashboard = () => {
     });
   };
 
-  const handleImageModeration = async () => {
-    if (!selectedImage) return;
+  const handleAIModeration = async () => {
+    if (moderationType === 'image' && !selectedImage) return;
+    if (moderationType === 'text' && !textToModerate.trim()) return;
 
     setLoading(true);
-    setModerationResults(null);
-    setLastModerationResult(null);
-
-    const formData = new FormData();
-    formData.append('media', selectedImage);
-    formData.append('models', 'weapon,alcohol,recreational_drug,medical,tobacco,violence,offensive,nudity');
-    formData.append('api_user', import.meta.env.VITE_SIGHTENGINE_API_USER);
-    formData.append('api_secret', import.meta.env.VITE_SIGHTENGINE_API_SECRET);
+    setAiModerationResult(null);
+    setSubmitError(null);
 
     try {
-      const response = await fetch('https://api.sightengine.com/1.0/check.json', {
+      const formData = new FormData();
+      formData.append('type', moderationType);
+      if (moderationType === 'image') {
+        formData.append('media', selectedImage);
+      } else {
+        formData.append('text_content', textToModerate.trim());
+      }
+
+      const res = await fetch(`${API_BASE_URL}/content/ai-moderate`, {
         method: 'POST',
         body: formData,
       });
-      const data = await response.json();
-      if (data.nudity && data.nudity.safe) {
-        delete data.nudity.safe;
-      }
-      setModerationResults(data);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'AI moderation failed');
+      setAiModerationResult(data);
+    } catch (err) {
+      setSubmitError(err.message || 'AI moderation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Simulate moderation outcome based on Sightengine results
-      const summary = getModerationSummary(data);
-      let newStatus = "Under Review"; // Default to under review
-      if (summary === '✅ Content is safe.') {
-        newStatus = "Approved";
-        setLastModerationResult("Content is safe");
-      } else if (summary.startsWith('⚠️ Inappropriate content detected!')) {
-        newStatus = "Rejected";
-        setLastModerationResult("Content is unsafe");
+  const handleExpertReview = async () => {
+    // Only one type at a time enforced by UI toggle
+    const token = getAuthToken();
+    if (!token) {
+      setSubmitError('Please sign in to submit for expert review.');
+      return;
+    }
+    if (moderationType === 'image' && !selectedImage) return;
+    if (moderationType === 'text' && !textToModerate.trim()) return;
+
+    setLoading(true);
+    setSubmitMessage(null);
+    setSubmitError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('type', moderationType);
+      if (moderationType === 'image') {
+        formData.append('media', selectedImage);
       } else {
-        setLastModerationResult("Awaiting review");
+        formData.append('text_content', textToModerate.trim());
       }
 
-      // Find the activity item that corresponds to the selected image
-      const activityToUpdate = recentActivity.find(activity => activity.filename === selectedImage.name && activity.status === "Pending");
-      if (activityToUpdate) {
-        moderateFile(activityToUpdate.id, newStatus);
+      const res = await fetch(`${API_BASE_URL}/content/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Upload failed');
+      setSubmitMessage('Submitted for expert review.');
+      // clear only on success
+      if (moderationType === 'image') {
+        setSelectedImage(null);
+      } else {
+        setTextToModerate('');
       }
-
-    } catch (error) {
-      console.error('Error moderating image:', error);
-      setModerationResults({ error: 'Failed to moderate image.' });
-      setLastModerationResult("Error during moderation");
+      await fetchMyContent();
+    } catch (err) {
+      setSubmitError(err.message || 'Upload failed');
     } finally {
       setLoading(false);
     }
@@ -188,12 +263,25 @@ const Dashboard = () => {
         <a href="#" className="hover:underline">Docs</a>
         <a href="#" className="hover:underline">Contact</a>
       </nav>
-      <a
-        href="/login"
-        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
-      >
-        Sign In
-      </a>
+      {localStorage.getItem('token') ? (
+        <button
+          onClick={async () => {
+            try { localStorage.removeItem('token'); } catch {}
+            try { await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' }); } catch {}
+            window.location.href = '/';
+          }}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
+        >
+          Sign Out
+        </button>
+      ) : (
+        <a
+          href="/login"
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
+        >
+          Sign In
+        </a>
+      )}
       <button className="md:hidden">
         <Menu className="h-6 w-6 text-blue-700" />
       </button>
@@ -229,7 +317,7 @@ const Dashboard = () => {
       <Header />
       <main className="container mx-auto px-4 py-8 flex-grow">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-blue-900">Welcome back, <span className="text-blue-600">Sheshank</span></h1>
+          <h1 className="text-3xl font-bold text-blue-900">Welcome back, <span className="text-blue-600">{userName || 'User'}</span></h1>
           <p className="text-blue-900 mt-1">Upload and manage your content with AI-powered moderation</p>
         </div>
 
@@ -305,7 +393,7 @@ const Dashboard = () => {
               </div>
 
               {moderationType === 'image' ? (
-                <div className="border-2 border-dashed border-blue-200 rounded-xl p-16 text-center text-blue-700">
+                <div className="border-2 border-dashed border-blue-200 rounded-xl p-6 sm:p-10 text-center text-blue-700">
                   <Upload className="mx-auto h-12 w-12 text-blue-600 mb-4" />
                   <p className="text-lg font-medium">Drop files here to moderate</p>
                   <p className="text-sm mt-1 mb-4">Or click to select files from your computer</p>
@@ -318,22 +406,33 @@ const Dashboard = () => {
                   />
                   <label
                     htmlFor="image-upload"
-                    className="bg-blue-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition-colors cursor-pointer"
+                    className="bg-blue-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition-colors cursor-pointer inline-block"
                   >
                     Select Image
                   </label>
                   {selectedImage && <p className="mt-2 text-sm">Selected: {selectedImage.name}</p>}
-                  <button
-                    onClick={handleImageModeration}
-                    disabled={!selectedImage || loading}
-                    className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Moderating...' : 'Moderate Image'}
-                  </button>
-                  <p className="text-xs mt-4">Supports images</p>
+
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                    <button
+                      onClick={handleAIModeration}
+                      disabled={!selectedImage || loading}
+                      className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Working...' : "AI Moderation"}
+                    </button>
+                    <button
+                      onClick={handleExpertReview}
+                      disabled={!selectedImage || loading}
+                      className="bg-purple-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Submitting...' : "Expert's Review"}
+                    </button>
+                  </div>
+
+                  <p className="text-xs mt-4">Only one content type is allowed at a time.</p>
                 </div>
               ) : (
-                <div className="border-2 border-dashed border-blue-200 rounded-xl p-8 text-center text-blue-700">
+                <div className="border-2 border-dashed border-blue-200 rounded-xl p-6 sm:p-8 text-center text-blue-700">
                   <FileText className="mx-auto h-12 w-12 text-blue-600 mb-4" />
                   <p className="text-lg font-medium mb-4">Enter text to moderate</p>
                   <textarea
@@ -343,13 +442,39 @@ const Dashboard = () => {
                     value={textToModerate}
                     onChange={(e) => setTextToModerate(e.target.value)}
                   ></textarea>
-                  <button
-                    onClick={handleTextModeration}
-                    disabled={!textToModerate || loading}
-                    className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Moderating...' : 'Moderate Text'}
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={handleAIModeration}
+                      disabled={!textToModerate || loading}
+                      className="bg-green-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Working...' : "AI Moderation"}
+                    </button>
+                    <button
+                      onClick={handleExpertReview}
+                      disabled={!textToModerate || loading}
+                      className="bg-purple-600 text-white font-medium px-6 py-3 rounded-lg shadow hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Submitting...' : "Expert's Review"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(aiModerationResult || submitMessage || submitError) && (
+                <div className="mt-4 text-left">
+                  {submitMessage && (
+                    <div className="text-green-700 bg-green-50 border border-green-200 rounded-md px-4 py-2 mb-2">{submitMessage}</div>
+                  )}
+                  {submitError && (
+                    <div className="text-red-700 bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-2">{submitError}</div>
+                  )}
+                  {aiModerationResult && (
+                    <div className="bg-white border border-blue-100 rounded-lg p-4">
+                      <h3 className="font-semibold mb-2">AI Moderation Result</h3>
+                      <pre className="text-xs overflow-x-auto text-blue-900"><code>{JSON.stringify(aiModerationResult, null, 2)}</code></pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -406,6 +531,42 @@ const Dashboard = () => {
                 View all activity history →
               </a>
             </div>
+          </div>
+        </div>
+        {/* User Content List */}
+        <div className="mt-8">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
+            <h2 className="text-xl font-semibold mb-4">My Content</h2>
+            {myContent.length === 0 ? (
+              <p className="text-blue-700">No content yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myContent.map((item) => {
+                  const isImage = !!item.image_path;
+                  const imageUrl = isImage ? `${API_BASE_URL}/uploads/${item.image_path}` : null;
+                  return (
+                    <div key={item.id || item._id} className="border border-blue-100 rounded-lg p-4 bg-blue-50">
+                      <div className="mb-3">
+                        {isImage ? (
+                          <img src={imageUrl} alt="uploaded" className="w-full h-40 object-cover rounded-md" />
+                        ) : (
+                          <p className="text-blue-900 whitespace-pre-wrap break-words">{item.text_content}</p>
+                        )}
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <div><span className="font-medium">Status:</span> {item.status}</div>
+                        {item.expert_response && (
+                          <div><span className="font-medium">Expert Response:</span> {item.expert_response}</div>
+                        )}
+                        {item.decision && (
+                          <div><span className="font-medium">Decision:</span> {item.decision}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </main>

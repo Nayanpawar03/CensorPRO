@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Register = () => {
+  const navigate = useNavigate();
+  const [message, setMessage] = useState(null);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const API_BASE_URL = useMemo(() => (
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+  ), []);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
-    password: '',
-    confirmPassword: '',
-    mobile: '',
-    address: ''
+    password: ''
   });
 
   const handleChange = (e) => {
@@ -17,56 +20,47 @@ const Register = () => {
   };
 
   const validate = () => {
-    const { firstName, lastName, email, password, confirmPassword, mobile, address } = formData;
-
-    const nameRegex = /^[A-Za-z]+$/;
+    const { name, email, password } = formData;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^\d{10}$/;
-
-    if (!firstName || !nameRegex.test(firstName)) {
-      alert("First Name must not be empty and contain only alphabets.");
-      return false;
-    }
-
-    if (!lastName) {
-      alert("Last Name cannot be empty.");
-      return false;
-    }
-
-    if (!email || !emailRegex.test(email)) {
-      alert("Please enter a valid email address (e.g., name@domain.com).");
-      return false;
-    }
-
-    if (!password || password.length < 6) {
-      alert("Password must be at least 6 characters long.");
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      alert("Passwords do not match.");
-      return false;
-    }
-
-    if (!phoneRegex.test(mobile)) {
-      alert("Mobile Number must be exactly 10 digits.");
-      return false;
-    }
-
-    if (!address) {
-      alert("Address cannot be empty.");
-      return false;
-    }
-
+    if (!name.trim()) { alert("Name is required."); return false; }
+    if (!email || !emailRegex.test(email)) { alert("Please enter a valid email address (e.g., name@domain.com)."); return false; }
+    if (!password || password.length < 6) { alert("Password must be at least 6 characters long."); return false; }
     return true;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validate()) {
-      // Proceed with submission (e.g., API call)
-      alert("Registration successful!");
+    setMessage(null);
+    setError(null);
+    if (!validate()) return;
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email,
+        password: formData.password,
+      };
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Registration failed');
+      setMessage('Registration successful');
+      if (data.token) {
+        try { localStorage.setItem('token', data.token); } catch {}
+      }
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleGoogleSignUp = () => {
+    window.location.href = `${API_BASE_URL}/auth/google`;
   };
 
   return (
@@ -93,20 +87,18 @@ const Register = () => {
             Create an account to start moderating your content effectively.
           </p>
 
+          {message && (
+            <div className="text-green-700 bg-green-50 border border-green-200 rounded-md px-4 py-2 mb-2">{message}</div>
+          )}
+          {error && (
+            <div className="text-red-700 bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-2">{error}</div>
+          )}
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <input
               type="text"
-              name="firstName"
-              placeholder="First Name"
-              value={formData.firstName}
-              onChange={handleChange}
-              className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            <input
-              type="text"
-              name="lastName"
-              placeholder="Last Name"
-              value={formData.lastName}
+              name="name"
+              placeholder="Full Name"
+              value={formData.name}
               onChange={handleChange}
               className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
@@ -126,36 +118,24 @@ const Register = () => {
               onChange={handleChange}
               className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            <input
-              type="text"
-              name="mobile"
-              placeholder="Mobile Number"
-              value={formData.mobile}
-              onChange={handleChange}
-              className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            <textarea
-              name="address"
-              placeholder="Address"
-              value={formData.address}
-              onChange={handleChange}
-              className="px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-            ></textarea>
             <button
               type="submit"
-              className="bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-medium"
+              disabled={submitting}
+              className="bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
             >
-              Register
+              {submitting ? 'Creating account...' : 'Register'}
             </button>
           </form>
+
+          <div className="mt-4">
+            <button
+              onClick={handleGoogleSignUp}
+              className="w-full bg-white text-blue-900 border border-blue-300 py-3 rounded-md hover:bg-blue-50 font-medium flex items-center justify-center gap-2"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+              Sign up with Google
+            </button>
+          </div>
 
           <p className="text-sm mt-4 text-blue-800">
             Already have an account?{' '}
