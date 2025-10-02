@@ -1,6 +1,6 @@
 import express from "express";
 import passport from "passport";
-import { registerUser, loginUser } from "../controllers/authController.js";
+import { registerUser, loginUser, logoutUser } from "../controllers/authController.js";
 import { signToken } from "../utils/jwt.js";
 import dotenv from "dotenv";
 dotenv.config();
@@ -11,6 +11,7 @@ const { FRONTEND_URL } = process.env;
 // Manual auth
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+router.post("/logout", logoutUser);
 
 // Google OAuth
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));

@@ -45,3 +45,11 @@ export const loginUser = async (req, res) => {
     res.status(500).json({ error: "Login failed" });
   }
 };
+
+// Logout User
+export const logoutUser = (req, res) => {
+  // For JWT, the backend doesn’t store sessions, so logout just instructs client to clear token
+  res.clearCookie("token"); // only useful if you’re using cookies
+  return res.json({ message: "Logged out successfully" });
+};
+
