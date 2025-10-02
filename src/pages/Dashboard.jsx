@@ -369,6 +369,11 @@ const Dashboard = () => {
                 <p className="text-lg font-medium text-blue-900">
                   {moderationType === 'image' ? getModerationSummary(moderationResults) : moderationResults.textResult}
                 </p>
+                {/* {moderationType === 'image' && (
+                  <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-x-auto">
+                    <code>{JSON.stringify(moderationResults, null, 2)}</code>
+                  </pre>
+                )} */}
               </div>
             )}
           </div>
