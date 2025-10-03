@@ -16,6 +16,46 @@ const storage = multer.diskStorage({
 });
 export const upload = multer({ storage });
 
+// AI moderation
+export const aiModeration = async (req, res) => {
+  try {
+    const contentId = req.params.id;
+
+    // Get content from DB
+    const { rows } = await pool.query("SELECT * FROM content WHERE id=$1", [contentId]);
+    if (rows.length === 0) return res.status(404).json({ error: "Content not found" });
+
+    const content = rows[0];
+
+    // Hugging Face API call
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/Sheshank2609/content-moderation-distilbert",
+      {
+        headers: { Authorization: `Bearer ${process.env.HF_API_KEY}` },
+        method: "POST",
+        body: JSON.stringify({ inputs: content.text_content || "" }),
+      }
+    );
+
+    const result = await response.json();
+    console.log("AI moderation result:", result);
+
+    // Decide Approved/Rejected
+    const decision = result[0]?.label === "safe" ? "Approved" : "Rejected";
+
+    // Update DB
+    const update = await pool.query(
+      "UPDATE content SET status='done', decision=$1, expert_response=$2 WHERE id=$3 RETURNING *",
+      [decision, `AI Model Output: ${JSON.stringify(result)}`, contentId]
+    );
+
+    res.json({ success: true, content: update.rows[0] });
+  } catch (err) {
+    console.error("AI moderation error:", err);
+    res.status(500).json({ error: "AI moderation failed" });
+  }
+};
+
 // Upload content
 export const uploadContent = async (req, res) => {
   const userId = req.user.id;
