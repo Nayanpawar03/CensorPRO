@@ -6,10 +6,14 @@ import {
   reviewContent,
   upload,
   getAdminStats,
+  aiModeration,
 } from "../controllers/contentController.js";
 import { authenticateJWT, isAdmin } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
+
+// Content goes to AI moderation
+router.post("/moderate/ai/:id", aiModeration);
 
 // User upload (text OR image)
 router.post("/upload", authenticateJWT, upload.single("image"), uploadContent);

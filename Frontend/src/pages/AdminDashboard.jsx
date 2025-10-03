@@ -12,6 +12,8 @@ const AdminDashboard = () => {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [responses, setResponses] = useState({}); // id -> { expert_response, decision }
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [viewed, setViewed] = useState({}); // id -> true if image viewed
   const [stats, setStats] = useState({ total: 0, pending: 0, under_review: 0, done: 0, approved: 0, rejected: 0 });
 
   const getToken = () => {
@@ -166,7 +168,15 @@ const AdminDashboard = () => {
                 <div className="text-sm text-blue-700 mb-2">{item.user_email || item.email}</div>
                 <div className="mb-3">
                   {isImage(item) ? (
-                    <img src={`${API_BASE_URL}/uploads/${item.image_path}`} alt="content" className="w-full h-40 object-cover rounded-md" />
+                    <div className="flex items-center justify-between bg-blue-50 border border-blue-100 p-3 rounded-md">
+                      <div className="text-sm text-blue-900">Image content</div>
+                      <button
+                        onClick={() => { setPreviewUrl(`${API_BASE_URL}${item.image_path}`); setViewed(prev => ({ ...prev, [itemId(item)]: true })); }}
+                        className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700"
+                      >
+                        View
+                      </button>
+                    </div>
                   ) : (
                     <p className="text-blue-900 whitespace-pre-wrap break-words">{item.text_content}</p>
                   )}
@@ -177,19 +187,22 @@ const AdminDashboard = () => {
                     placeholder="Expert Response (safe/unsafe)"
                     value={responses[itemId(item)]?.expert_response || ''}
                     onChange={(e) => updateResponse(itemId(item), 'expert_response', e.target.value)}
-                    className="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isImage(item) && !viewed[itemId(item)]}
+                    className="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                   />
                   <select
                     value={responses[itemId(item)]?.decision || 'Approved'}
                     onChange={(e) => updateResponse(itemId(item), 'decision', e.target.value)}
-                    className="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isImage(item) && !viewed[itemId(item)]}
+                    className="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                   >
                     <option value="Approved">Approved</option>
                     <option value="Rejected">Rejected</option>
                   </select>
                   <button
                     onClick={() => submitReview(itemId(item))}
-                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                    disabled={isImage(item) && !viewed[itemId(item)]}
+                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-60"
                   >
                     Send Response
                   </button>
@@ -199,6 +212,17 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
+      {previewUrl && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-xl max-w-4xl w-[90%]">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-blue-900 font-semibold">Preview</h3>
+              <button onClick={() => setPreviewUrl(null)} className="text-blue-600 hover:underline">Close</button>
+            </div>
+            <img src={previewUrl} alt="preview" className="w-full max-h-[80vh] object-contain rounded-md" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

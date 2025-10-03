@@ -183,18 +183,30 @@ const Dashboard = () => {
       const formData = new FormData();
       formData.append('type', moderationType);
       if (moderationType === 'image') {
-        formData.append('media', selectedImage);
+        formData.append('image', selectedImage);
       } else {
         formData.append('text_content', textToModerate.trim());
       }
 
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/content/ai-moderate`, {
         method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData,
       });
-      const data = await res.json();
+
+      const contentType = res.headers.get('content-type') || '';
+      const raw = await res.text();
+      let data;
+      try {
+        data = contentType.includes('application/json') ? JSON.parse(raw) : JSON.parse(raw);
+      } catch {
+        throw new Error(raw?.slice(0, 200) || 'AI moderation failed');
+      }
       if (!res.ok) throw new Error(data?.message || 'AI moderation failed');
-      setAiModerationResult(data);
+
+      setAiModerationResult(data); // this prints HuggingFace result from backend
+      await fetchMyContent();      // refresh content list
     } catch (err) {
       setSubmitError(err.message || 'AI moderation failed');
     } finally {
@@ -220,7 +232,7 @@ const Dashboard = () => {
       const formData = new FormData();
       formData.append('type', moderationType);
       if (moderationType === 'image') {
-        formData.append('media', selectedImage);
+        formData.append('image', selectedImage);
       } else {
         formData.append('text_content', textToModerate.trim());
       }
@@ -559,7 +571,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myContent.map((item) => {
                   const isImage = !!item.image_path;
-                  const imageUrl = isImage ? `${API_BASE_URL}/uploads/${item.image_path}` : null;
+                  const imageUrl = isImage ? `${API_BASE_URL}${item.image_path}` : null;
                   // prefer explicit decision from backend; otherwise derive from status
                   const rawDecision = (item.decision && String(item.decision)) || (item.status && String(item.status)) || 'Pending';
                   const normalizedDecision = (() => {
