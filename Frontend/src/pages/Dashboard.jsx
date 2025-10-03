@@ -183,7 +183,8 @@ const Dashboard = () => {
       const formData = new FormData();
       formData.append('type', moderationType);
       if (moderationType === 'image') {
-        formData.append('media', selectedImage);
+        // backend expects field name 'image' for multer
+        formData.append('image', selectedImage);
       } else {
         formData.append('text_content', textToModerate.trim());
       }
@@ -220,7 +221,7 @@ const Dashboard = () => {
       const formData = new FormData();
       formData.append('type', moderationType);
       if (moderationType === 'image') {
-        formData.append('media', selectedImage);
+        formData.append('image', selectedImage);
       } else {
         formData.append('text_content', textToModerate.trim());
       }
@@ -559,7 +560,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myContent.map((item) => {
                   const isImage = !!item.image_path;
-                  const imageUrl = isImage ? `${API_BASE_URL}/uploads/${item.image_path}` : null;
+                  const imageUrl = isImage ? `${API_BASE_URL}${item.image_path}` : null;
                   // prefer explicit decision from backend; otherwise derive from status
                   const rawDecision = (item.decision && String(item.decision)) || (item.status && String(item.status)) || 'Pending';
                   const normalizedDecision = (() => {

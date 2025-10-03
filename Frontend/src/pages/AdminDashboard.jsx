@@ -166,7 +166,7 @@ const AdminDashboard = () => {
                 <div className="text-sm text-blue-700 mb-2">{item.user_email || item.email}</div>
                 <div className="mb-3">
                   {isImage(item) ? (
-                    <img src={`${API_BASE_URL}/uploads/${item.image_path}`} alt="content" className="w-full h-40 object-cover rounded-md" />
+                    <img src={`${API_BASE_URL}${item.image_path}`} alt="content" className="w-full h-40 object-cover rounded-md" />
                   ) : (
                     <p className="text-blue-900 whitespace-pre-wrap break-words">{item.text_content}</p>
                   )}
