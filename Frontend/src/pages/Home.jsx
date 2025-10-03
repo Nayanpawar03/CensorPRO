@@ -1,10 +1,38 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FaShieldAlt, FaImage, FaCheckCircle } from 'react-icons/fa';
 import censorProLogo from '../assets/CensorProLogo.png'
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 
 const Home = () => {
+  const navigate = useNavigate();
+  const [isAuthed, setIsAuthed] = useState(false);
+  const API_BASE_URL = useMemo(() => (
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+  ), []);
+
+  useEffect(() => {
+    try { setIsAuthed(!!localStorage.getItem('token')); } catch {}
+    const onStorage = (e) => { if (e.key === 'token') setIsAuthed(!!e.newValue); };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  const handleTryItNow = () => {
+    let token = null;
+    try { token = localStorage.getItem('token'); } catch {}
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1] || ''));
+      const isAdmin = payload?.role === 'admin' || payload?.isAdmin === true;
+      navigate(isAdmin ? '/admin' : '/dashboard');
+    } catch {
+      navigate('/dashboard');
+    }
+  };
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-200 text-blue-900">
       
@@ -15,17 +43,31 @@ const Home = () => {
           <span className="font-bold text-xl text-blue-600">CensorPro</span>
         </div>
         <nav className="hidden md:flex gap-6 text-blue-700 font-medium">
-          <a href="#" className="hover:underline">Home</a>
+          <Link to="/" className="hover:underline">Home</Link>
           <a href="#" className="hover:underline">Features</a>
           <a href="#" className="hover:underline">Docs</a>
           <a href="#" className="hover:underline">Contact</a>
         </nav>
-        <Link
-          to="/login"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
-        >
-          Sign In
-        </Link>
+        {isAuthed ? (
+          <button
+            onClick={async () => {
+              try { localStorage.removeItem('token'); } catch {}
+              try { await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' }); } catch {}
+              setIsAuthed(false);
+              navigate('/', { replace: true });
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
+          >
+            Sign Out
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
+          >
+            Sign In
+          </Link>
+        )}
 
         
       </header>
@@ -38,8 +80,8 @@ const Home = () => {
         <p className="max-w-xl text-lg mb-8">
           CensorPro helps you detect abusive, offensive, or sensitive content in uploaded images instantly. Built for creators, businesses, and communities to stay secure and respectful.
         </p>
-        <button className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg hover:bg-blue-700 transition-all cursor-pointer">
-          <a href="/Dashboard">Try It Now</a>
+        <button onClick={handleTryItNow} className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg hover:bg-blue-700 transition-all cursor-pointer">
+          Try It Now
         </button>
 
         {/* Feature Highlights */}

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Upload, CheckCircle, Clock, AlertTriangle, XCircle, FileText, Video, ImageIcon, Settings, User, Menu } from 'lucide-react';
 import censorProLogo from '../assets/CensorProLogo.png'
 
@@ -273,7 +274,7 @@ const Dashboard = () => {
         <span className="font-bold text-xl text-blue-600">CensorPro</span>
       </div>
       <nav className="hidden md:flex gap-6 text-blue-700 font-medium">
-        <a href="#" className="hover:underline">Home</a>
+        <Link to="/" className="hover:underline">Home</Link>
         <a href="#" className="hover:underline">Features</a>
         <a href="#" className="hover:underline">Docs</a>
         <a href="#" className="hover:underline">Contact</a>
