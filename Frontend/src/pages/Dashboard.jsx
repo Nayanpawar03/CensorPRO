@@ -104,20 +104,58 @@ const Dashboard = () => {
       violence: 0.5,
       offensive: 0.5,
       nudity: 0.5, // Using partial or raw for nudity
+      gore: 0.5,
     };
 
-    for (const category in thresholds) {
-      if (results[category]) {
-        if (category === 'nudity') {
-          if (results.nudity.raw > thresholds.nudity || results.nudity.partial > thresholds.nudity) {
-            inappropriateCategories.push(`Nudity (raw: ${results.nudity.raw.toFixed(2)}, partial: ${results.nudity.partial.toFixed(2)})`);
-          }
-        } else if (results[category].hasOwnProperty('prob') && results[category].prob > thresholds[category]) {
-          inappropriateCategories.push(`${category.charAt(0).toUpperCase() + category.slice(1)} (${results[category].prob.toFixed(2)})`);
-        } else if (results[category].hasOwnProperty('sexual_activity') && results[category].sexual_activity > thresholds[category]) {
-          inappropriateCategories.push(`${category.charAt(0).toUpperCase() + category.slice(1)} (sexual_activity: ${results[category].sexual_activity.toFixed(2)})`);
-        }
+    // Handle Sightengine specific output structure
+    if (results.status === 'success') {
+      // Nudity
+      if (results.nudity && (results.nudity.raw > thresholds.nudity || results.nudity.partial > thresholds.nudity)) {
+        inappropriateCategories.push(`Nudity (raw: ${results.nudity.raw?.toFixed(2) || '0'}, partial: ${results.nudity.partial?.toFixed(2) || '0'})`);
       }
+
+      // Weapon
+      if (results.weapon && results.weapon > thresholds.weapon) {
+        inappropriateCategories.push(`Weapon (${results.weapon.toFixed(2)})`);
+      }
+
+      // Alcohol
+      if (results.alcohol && results.alcohol > thresholds.alcohol) { // Corrected: direct check for alcohol probability
+        inappropriateCategories.push(`Alcohol (${results.alcohol.toFixed(2)})`);
+      }
+
+      // Recreational Drug
+      if (results.recreational_drugs && results.recreational_drugs > thresholds.recreational_drug) {
+        inappropriateCategories.push(`Recreational Drug (${results.recreational_drugs.toFixed(2)})`);
+      }
+
+      // Medical
+      if (results.medical_drugs && results.medical_drugs > thresholds.medical) {
+        inappropriateCategories.push(`Medical (${results.medical_drugs.toFixed(2)})`);
+      }
+
+      // Tobacco
+      if (results.tobacco && results.tobacco.prob > thresholds.tobacco) {
+        inappropriateCategories.push(`Tobacco (${results.tobacco.prob.toFixed(2)})`);
+      }
+
+      // Violence
+      if (results.violence && results.violence.prob > thresholds.violence) {
+        inappropriateCategories.push(`Violence (${results.violence.prob.toFixed(2)})`);
+      }
+
+      // Offensive
+      if (results.offensive && results.offensive.prob > thresholds.offensive) {
+        inappropriateCategories.push(`Offensive (${results.offensive.prob.toFixed(2)})`);
+      }
+
+      // Gore
+      if (results.gore && results.gore.prob > thresholds.gore) {
+        inappropriateCategories.push(`Gore (${results.gore.prob.toFixed(2)})`);
+      }
+
+    } else if (results.error) {
+      return `Error from Sightengine: ${results.error.message || 'Unknown error'}`;
     }
 
     if (inappropriateCategories.length > 0) {
@@ -180,32 +218,37 @@ const Dashboard = () => {
     setSubmitError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('type', moderationType);
       if (moderationType === 'image') {
-        formData.append('image', selectedImage);
+        const data = await moderateImageWithSightengine(selectedImage);
+        setAiModerationResult(data);
+        setModerationResults(data); // Set moderationResults for image moderation
+        setLastModerationResult(getModerationSummary(data)); // Set lastModerationResult for image moderation
       } else {
+        const formData = new FormData();
+        formData.append('type', moderationType);
         formData.append('text_content', textToModerate.trim());
+
+        const token = getAuthToken();
+        const res = await fetch(`${API_BASE_URL}/content/ai-moderate`, {
+          method: 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          body: formData,
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        const raw = await res.text();
+        let data;
+        try {
+          data = contentType.includes('application/json') ? JSON.parse(raw) : JSON.parse(raw);
+        } catch {
+          throw new Error(raw?.slice(0, 200) || 'AI moderation failed');
+        }
+        if (!res.ok) throw new Error(data?.message || 'AI moderation failed');
+
+        setAiModerationResult(data); // this prints HuggingFace result from backend
+        setModerationResults({ textResult: getModerationSummary(data) }); // Assuming getModerationSummary can handle text results or needs adjustment
+        setLastModerationResult(getModerationSummary(data)); // Set lastModerationResult for text moderation
       }
-
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE_URL}/content/ai-moderate`, {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData,
-      });
-
-      const contentType = res.headers.get('content-type') || '';
-      const raw = await res.text();
-      let data;
-      try {
-        data = contentType.includes('application/json') ? JSON.parse(raw) : JSON.parse(raw);
-      } catch {
-        throw new Error(raw?.slice(0, 200) || 'AI moderation failed');
-      }
-      if (!res.ok) throw new Error(data?.message || 'AI moderation failed');
-
-      setAiModerationResult(data); // this prints HuggingFace result from backend
       await fetchMyContent();      // refresh content list
     } catch (err) {
       setSubmitError(err.message || 'AI moderation failed');
@@ -276,6 +319,33 @@ const Dashboard = () => {
       setModerationResults({ textResult: result });
       setLoading(false);
     }, 1500);
+  };
+
+  const SIGHTENGINE_API_USER = import.meta.env.VITE_SIGHTENGINE_API_USER;
+  const SIGHTENGINE_API_SECRET = import.meta.env.VITE_SIGHTENGINE_API_SECRET;
+
+  const moderateImageWithSightengine = async (imageFile) => {
+    const formData = new FormData();
+    formData.append('media', imageFile);
+    formData.append('models', 'nudity,wad,offensive,tobacco,violence'); // Updated models to precisely match requested categories
+    formData.append('api_user', SIGHTENGINE_API_USER);
+    formData.append('api_secret', SIGHTENGINE_API_SECRET);
+
+    try {
+      const res = await fetch('https://api.sightengine.com/1.0/check.json', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || 'Sightengine API call failed');
+      }
+      return data;
+    } catch (err) {
+      console.error('Sightengine moderation error:', err);
+      throw err;
+    }
   };
 
   // Header component for the top navigation bar, defined inside Dashboard
@@ -489,19 +559,13 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {(aiModerationResult || submitMessage || submitError) && (
+              {(submitMessage || submitError) && (
                 <div className="mt-4 text-left">
                   {submitMessage && (
                     <div className="text-green-700 bg-green-50 border border-green-200 rounded-md px-4 py-2 mb-2">{submitMessage}</div>
                   )}
                   {submitError && (
                     <div className="text-red-700 bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-2">{submitError}</div>
-                  )}
-                  {aiModerationResult && (
-                    <div className="bg-white border border-blue-100 rounded-lg p-4">
-                      <h3 className="font-semibold mb-2">AI Moderation Result</h3>
-                      <pre className="text-xs overflow-x-auto text-blue-900"><code>{JSON.stringify(aiModerationResult, null, 2)}</code></pre>
-                    </div>
                   )}
                 </div>
               )}
@@ -522,6 +586,8 @@ const Dashboard = () => {
                 <p className="text-lg font-medium text-blue-900">
                   {moderationType === 'image' ? getModerationSummary(moderationResults) : moderationResults.textResult}
                 </p>
+
+              {/* ---------------------JSON OUTPUT---------------------- */}
                 {/* {moderationType === 'image' && (
                   <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-x-auto">
                     <code>{JSON.stringify(moderationResults, null, 2)}</code>
@@ -608,7 +674,7 @@ const Dashboard = () => {
                           ? 'bg-orange-50 border-orange-100'
                           : 'bg-blue-50 border-blue-100';
                   const expertResponse = item.expert_response || 'Awaiting expert review';
-                  // status-specific styles for top-right badge
+                  // status-specific styles for the top-right badge
                   const statusStyles =
                     normalizedStatus === 'Done'
                       ? 'bg-green-100 text-green-700 border-green-200'
