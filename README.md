@@ -1,5 +1,11 @@
 # CensorPRO
 
+
+## Why Content Moderation Matters
+
+User-generated content can boost engagement, but it also carries risks: spam, hate speech, harassment, misinformation. A moderation system helps strike a balance: protecting users while preserving freedom of expression.
+
+
 **CensorPRO** enables platforms to automatically and/or manually moderate user-generated content (text, images). 
 Use it to filter profanity, hate speech, spam, or other undesired content and maintain a safe community.
 
@@ -53,3 +59,28 @@ MOD_MODEL_KEY=your_model_api_key
 cd..
 npm run dev
 ```
+
+
+## Usage
+
+User posts content → frontend sends it to backend API
+
+Backend moderation: checks the content via AI model (User gets ption to choose AI moderation or Admin review for moderation)
+
+Shows result whether safe or unsafe
+
+Moderator dashboard: view flagged items, approve or reject.
+
+
+## Technologies / Stack
+
+Backend: Node.js, Express 
+
+Frontend: React
+
+Database: PostgreSQL 
+
+Moderation approach:  ML model (DistillBert for Text moderation), external API (SightEngine for image moderation)
+
+
+
