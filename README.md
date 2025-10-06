@@ -30,7 +30,7 @@ Use it to filter profanity, hate speech, spam, or other undesired content and ma
    ```bash
    git clone https://github.com/Nayanpawar03/CensorPRO.git
    cd CensorPRO
-```
+   ```
 
 2. Install dependencies for backend and frontend
 ```bash
