@@ -165,6 +165,35 @@ const Dashboard = () => {
     }
   };
 
+  // Helper function to process text moderation results from Gradio
+  const processTextModerationResults = (scores) => {
+    const toxicCategories = ['toxic', 'obscene', 'insult', 'threat', 'identity_hate', 'severe_toxic'];
+    const inappropriateReasons = [];
+    let maxToxicScore = 0;
+    
+    toxicCategories.forEach(category => {
+      const score = scores[category];
+      if (score > 0.5) { // Only include if more than 50% confidence
+        inappropriateReasons.push(`${category} (${(score * 100).toFixed(1)}%)`);
+        if (score > maxToxicScore) {
+          maxToxicScore = score;
+        }
+      }
+    });
+
+    const isSafe = scores.safe > 0.5 && inappropriateReasons.length === 0;
+    
+    return {
+      label: isSafe ? "safe" : "unsafe",
+      score: isSafe ? scores.safe : maxToxicScore,
+      isInappropriate: !isSafe,
+      reasons: inappropriateReasons,
+      summary: isSafe 
+        ? `✅ Content is safe (Confidence: ${(scores.safe * 100).toFixed(1)}%)`
+        : `⚠️ Content may be inappropriate (${inappropriateReasons.join(", ")})`
+    };
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -224,32 +253,41 @@ const Dashboard = () => {
         setModerationResults(data); // Set moderationResults for image moderation
         setLastModerationResult(getModerationSummary(data)); // Set lastModerationResult for image moderation
       } else {
-        const formData = new FormData();
-        formData.append('type', moderationType);
-        formData.append('text_content', textToModerate.trim());
-
         const token = getAuthToken();
-        const res = await fetch(`${API_BASE_URL}/content/ai-moderate`, {
+        const res = await fetch(`${API_BASE_URL}/content/moderate/text`, {
           method: 'POST',
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-          body: formData,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text: textToModerate.trim() }),
         });
 
-        const contentType = res.headers.get('content-type') || '';
-        const raw = await res.text();
-        let data;
-        try {
-          data = contentType.includes('application/json') ? JSON.parse(raw) : JSON.parse(raw);
-        } catch {
-          throw new Error(raw?.slice(0, 200) || 'AI moderation failed');
+        if (!res.ok) {
+          throw new Error('Failed to moderate text');
         }
-        if (!res.ok) throw new Error(data?.message || 'AI moderation failed');
 
-        setAiModerationResult(data); // this prints HuggingFace result from backend
-        setModerationResults({ textResult: getModerationSummary(data) }); // Assuming getModerationSummary can handle text results or needs adjustment
-        setLastModerationResult(getModerationSummary(data)); // Set lastModerationResult for text moderation
+        const rawData = await res.json();
+        console.log('Raw moderation result:', rawData);
+        
+        // Process the scores from the first element of data array
+        const processedData = processTextModerationResults(rawData.data[0]);
+        setAiModerationResult(processedData);
+        setModerationResults(processedData);
+        setLastModerationResult(processedData.summary);
       }
-      await fetchMyContent();      // refresh content list
+
+      // Add to recent activity
+      const newActivity = {
+        id: recentActivity.length + 1,
+        filename: moderationType === 'image' ? selectedImage.name : 'Text moderation',
+        status: aiModerationResult?.isInappropriate ? "Flagged" : "Safe",
+        date: new Date().toISOString().slice(0, 10),
+        icon: moderationType === 'image' ? ImageIcon : FileText,
+      };
+      setRecentActivity((prev) => [newActivity, ...prev]);
+      
+      await fetchMyContent();
     } catch (err) {
       setSubmitError(err.message || 'AI moderation failed');
     } finally {
@@ -304,22 +342,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleTextModeration = async () => {
-    if (!textToModerate) return;
-
-    setLoading(true);
-    setModerationResults(null);
-    setLastModerationResult(null);
-
-    // For now, just simulate a response
-    setTimeout(() => {
-      const isSafe = !textToModerate.toLowerCase().includes('badword'); // Simple check
-      const result = isSafe ? '✅ Content is safe.' : '⚠️ Inappropriate content detected!';
-      setLastModerationResult(result);
-      setModerationResults({ textResult: result });
-      setLoading(false);
-    }, 1500);
-  };
+  // Text moderation is now handled in handleAIModeration
 
   const SIGHTENGINE_API_USER = import.meta.env.VITE_SIGHTENGINE_API_USER;
   const SIGHTENGINE_API_SECRET = import.meta.env.VITE_SIGHTENGINE_API_SECRET;
@@ -574,25 +597,39 @@ const Dashboard = () => {
             {lastModerationResult && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
                 <h2 className="text-xl font-semibold mb-4">Last Moderation Result</h2>
-                <p className="text-lg font-medium text-blue-900">
+                <div className={`text-lg font-medium ${aiModerationResult?.isInappropriate ? 'text-red-600' : 'text-green-600'}`}>
                   {lastModerationResult}
-                </p>
+                </div>
+                {aiModerationResult?.reasons && aiModerationResult.reasons.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="font-medium text-blue-900 mb-2">Detected Categories:</h3>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {aiModerationResult.reasons.map((reason, index) => (
+                        <li key={index} className="text-red-600">{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 
             {moderationResults && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
                 <h2 className="text-xl font-semibold mb-4">Detailed Moderation Results</h2>
-                <p className="text-lg font-medium text-blue-900">
-                  {moderationType === 'image' ? getModerationSummary(moderationResults) : moderationResults.textResult}
-                </p>
+                <div className={`text-lg font-medium ${moderationResults?.isInappropriate ? 'text-red-600' : 'text-green-600'}`}>
+                  {moderationType === 'image' ? getModerationSummary(moderationResults) : moderationResults.summary}
+                </div>
 
-              {/* ---------------------JSON OUTPUT---------------------- */}
-                {/* {moderationType === 'image' && (
-                  <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-x-auto">
-                    <code>{JSON.stringify(moderationResults, null, 2)}</code>
-                  </pre>
-                )} */}
+                {moderationType === 'text' && moderationResults?.reasons && moderationResults.reasons.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="font-medium text-blue-900 mb-2">Detected Categories:</h3>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {moderationResults.reasons.map((reason, index) => (
+                        <li key={index} className="text-red-600">{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>

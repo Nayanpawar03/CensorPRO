@@ -7,10 +7,14 @@ import {
   upload,
   getAdminStats,
   aiModeration,
+  moderateText,
 } from "../controllers/contentController.js";
 import { authenticateJWT, isAdmin } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
+
+// Text moderation endpoint
+router.post("/moderate/text", authenticateJWT, moderateText);
 
 // Content goes to AI moderation
 router.post("/moderate/ai/:id", aiModeration);
