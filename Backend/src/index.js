@@ -23,4 +23,19 @@ app.use("/uploads", express.static("uploads"));
 app.use("/auth", authRoutes);
 app.use("/content", contentRoutes);
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://censor-pro.vercel.app"
+];
+
+app.use(cors({
+  origin: function(origin, callback){
+    if(!origin) return callback(null, true); // allow non-browser requests
+    if(allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("CORS not allowed"));
+  },
+  credentials: true
+}));
+
+
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
