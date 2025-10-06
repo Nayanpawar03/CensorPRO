@@ -82,5 +82,5 @@ Database: PostgreSQL
 
 Moderation approach:  ML model (DistillBert for Text moderation), external API (SightEngine for image moderation)
 
-
+### Text moderation model : https://huggingface.co/Sheshank2609/content-moderation-distilbert
 
