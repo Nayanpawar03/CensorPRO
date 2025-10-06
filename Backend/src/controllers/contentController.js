@@ -2,6 +2,7 @@ import pool from "../db.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { Client } from "@gradio/client";
 
 // Multer setup
 const storage = multer.diskStorage({
@@ -15,6 +16,26 @@ const storage = multer.diskStorage({
   },
 });
 export const upload = multer({ storage });
+
+// Text moderation endpoint - just forwards the request to Gradio
+export const moderateText = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: "No text provided for moderation" });
+    }
+
+    // Connect to your Gradio Space
+    const client = await Client.connect("Sheshank2609/content-moderation-demo");
+    
+    // Call the moderation endpoint and return raw result
+    const result = await client.predict("/moderate_text", { inputs: text });
+    return res.json(result);
+  } catch (error) {
+    console.error("Text moderation error:", error);
+    return res.status(500).json({ error: "Failed to moderate text content" });
+  }
+};
 
 // AI moderation
 export const aiModeration = async (req, res) => {
