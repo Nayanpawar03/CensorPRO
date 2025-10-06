@@ -30,3 +30,26 @@ Use it to filter profanity, hate speech, spam, or other undesired content and ma
    ```bash
    git clone https://github.com/Nayanpawar03/CensorPRO.git
    cd CensorPRO
+```
+
+2. Install dependencies for backend and frontend
+```bash
+cd Backend
+npm install
+
+cd ../Frontend
+npm install
+```
+
+3. Setup environment variables. Create a .env file in Backend with content like:
+```bash
+PORT=5000
+DB_URI=your_database_connection_string
+MOD_MODEL_KEY=your_model_api_key
+```
+
+4. Run the app
+```bash
+cd..
+npm run dev
+```
