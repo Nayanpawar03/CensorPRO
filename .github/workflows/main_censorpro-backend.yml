@@ -11,12 +11,12 @@ on:
 
 jobs:
   build:
-    # 💥 CRITICAL FIX: Changing runner to Ubuntu for reliable pathing in monorepo setup 💥
+    # Set to Linux for path consistency
     runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
 
-    # CRITICAL FIX: Set the default working directory for all 'run' steps in this job
+    # Keep defaults, but override in steps for robustness
     defaults:
       run:
         working-directory: ./Backend
@@ -29,22 +29,24 @@ jobs:
         with:
           node-version: '20.x'
 
-      # 1. Install dependencies (using npm ci for robustness)
+      # 1. Install dependencies (explicitly set working-directory on run step)
       - name: Install dependencies (in Backend directory)
         run: npm ci
+        working-directory: ./Backend # <--- Added explicitly here
 
-      # 2. Build and Test (if scripts exist)
+      # 2. Build and Test (explicitly set working-directory on run step)
       - name: Build and Test
         run: |
           npm run build --if-present
           npm run test --if-present
+        working-directory: ./Backend # <--- Added explicitly here
 
       # 3. Upload the Backend folder contents as the artifact
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: Backend # This path is RELATIVE TO THE ROOT REPO, NOT the working-directory.
+          path: Backend # Relative to the repository root
 
   deploy:
     runs-on: ubuntu-latest
@@ -72,4 +74,4 @@ jobs:
         with:
           app-name: 'censorpro-backend'
           slot-name: 'Production'
-          package: . # Deploy the root of the downloaded artifact (which is the Backend contents)
+          package: .
