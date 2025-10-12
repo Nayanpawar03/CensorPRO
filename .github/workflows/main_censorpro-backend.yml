@@ -11,9 +11,15 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # 💥 CRITICAL FIX: Changing runner to Ubuntu for reliable pathing in monorepo setup 💥
+    runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
+
+    # CRITICAL FIX: Set the default working directory for all 'run' steps in this job
+    defaults:
+      run:
+        working-directory: ./Backend
 
     steps:
       - uses: actions/checkout@v4
@@ -23,20 +29,22 @@ jobs:
         with:
           node-version: '20.x'
 
-      # 💥 CRITICAL FIX 1: Use working-directory for npm commands 💥
-      - name: npm install, build, and test (in Backend directory)
+      # 1. Install dependencies (using npm ci for robustness)
+      - name: Install dependencies (in Backend directory)
+        run: npm ci
+
+      # 2. Build and Test (if scripts exist)
+      - name: Build and Test
         run: |
-          npm install
           npm run build --if-present
           npm run test --if-present
-        working-directory: ./Backend # <-- THIS TELLS IT TO RUN COMMANDS IN Backend FOLDER
-      
-      # 💡 Optimization: The artifact name is the Backend folder
+
+      # 3. Upload the Backend folder contents as the artifact
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: Backend # <-- Upload ONLY the Backend contents
+          path: Backend # This path is RELATIVE TO THE ROOT REPO, NOT the working-directory.
 
   deploy:
     runs-on: ubuntu-latest
@@ -58,13 +66,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4D3D2D4A94044B2BAED119BC22A1908F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_502EC897C8F541C6A8789E4B1A409A3E }}
 
-      # 💥 CRITICAL FIX 2: Deploy the downloaded artifact
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'censorpro-backend'
           slot-name: 'Production'
-          # The package is now the root of the downloaded artifact 'node-app', 
-          # which contains the Backend directory's contents.
-          package: . 
+          package: . # Deploy the root of the downloaded artifact (which is the Backend contents)
