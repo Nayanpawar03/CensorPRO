@@ -82,11 +82,34 @@ const Dashboard = () => {
         const derivedName = payload?.name || payload?.email || '';
         if (derivedName) setUserName(derivedName);
       }
-    } catch {}
+    } catch { }
     return () => clearInterval(intervalId);
   }, []);
 
-  
+  // Capture token from Google redirect and store in localStorage
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // if using #?token=
+    const searchParams = new URLSearchParams(window.location.search); // if using ?token=
+
+    const token = hashParams.get('token') || searchParams.get('token');
+    if (token) {
+      localStorage.setItem('token', token);
+      // Clean up the URL so token isn't visible
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      setUserName(() => {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.name || payload.email || 'User';
+        } catch {
+          return 'User';
+        }
+      });
+    }
+  }, []);
+
+
+
   const getModerationSummary = (results) => {
     if (!results) return null;
 
@@ -170,7 +193,7 @@ const Dashboard = () => {
     const toxicCategories = ['toxic', 'obscene', 'insult', 'threat', 'identity_hate', 'severe_toxic'];
     const inappropriateReasons = [];
     let maxToxicScore = 0;
-    
+
     toxicCategories.forEach(category => {
       const score = scores[category];
       if (score > 0.5) { // Only include if more than 50% confidence
@@ -182,13 +205,13 @@ const Dashboard = () => {
     });
 
     const isSafe = scores.safe > 0.5 && inappropriateReasons.length === 0;
-    
+
     return {
       label: isSafe ? "safe" : "unsafe",
       score: isSafe ? scores.safe : maxToxicScore,
       isInappropriate: !isSafe,
       reasons: inappropriateReasons,
-      summary: isSafe 
+      summary: isSafe
         ? `✅ Content is safe (Confidence: ${(scores.safe * 100).toFixed(1)}%)`
         : `⚠️ Content may be inappropriate (${inappropriateReasons.join(", ")})`
     };
@@ -269,7 +292,7 @@ const Dashboard = () => {
 
         const rawData = await res.json();
         console.log('Raw moderation result:', rawData);
-        
+
         // Process the scores from the first element of data array
         const processedData = processTextModerationResults(rawData.data[0]);
         setAiModerationResult(processedData);
@@ -286,7 +309,7 @@ const Dashboard = () => {
         icon: moderationType === 'image' ? ImageIcon : FileText,
       };
       setRecentActivity((prev) => [newActivity, ...prev]);
-      
+
       await fetchMyContent();
     } catch (err) {
       setSubmitError(err.message || 'AI moderation failed');
@@ -387,8 +410,8 @@ const Dashboard = () => {
       {localStorage.getItem('token') ? (
         <button
           onClick={async () => {
-            try { localStorage.removeItem('token'); } catch {}
-            try { await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' }); } catch {}
+            try { localStorage.removeItem('token'); } catch { }
+            try { await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' }); } catch { }
             window.location.href = '/';
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
@@ -647,12 +670,11 @@ const Dashboard = () => {
                       <div className="font-medium text-blue-900">{activity.filename}</div>
                       <div className="text-sm text-blue-700">{activity.date}</div>
                     </div>
-                    <div className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap ${
-                      activity.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                      activity.status === 'Pending' ? 'bg-blue-100 text-blue-700' :
-                      activity.status === 'Under Review' ? 'bg-orange-100 text-orange-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
+                    <div className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap ${activity.status === 'Approved' ? 'bg-green-100 text-green-700' :
+                        activity.status === 'Pending' ? 'bg-blue-100 text-blue-700' :
+                          activity.status === 'Under Review' ? 'bg-orange-100 text-orange-700' :
+                            'bg-red-100 text-red-700'
+                      }`}>
                       {activity.status}
                     </div>
                   </div>

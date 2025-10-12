@@ -19,8 +19,25 @@ app.use(passport.initialize());
 // Serve uploaded images
 app.use("/uploads", express.static("uploads"));
 
+app.use(cors({
+    origin: ["http://localhost:3000"], // allow your React app
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}));
+
+
+app.use((req, res, next) => {
+    res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; connect-src 'self' http://localhost:3000 http://localhost:5000 ws://localhost:5000; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    );
+    next();
+});
+
 // Routes
 app.use("/auth", authRoutes);
 app.use("/content", contentRoutes);
 
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+
+

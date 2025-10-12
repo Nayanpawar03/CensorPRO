@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import censorProLogo from '../assets/CensorProLogo.png'
+import censorProLogo from '../assets/CensorProLogo.png';
 
 const AdminDashboard = () => {
   const API_BASE_URL = useMemo(() => (
@@ -11,18 +11,42 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
-  const [responses, setResponses] = useState({}); // id -> { expert_response, decision }
+  const [responses, setResponses] = useState({});
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [viewed, setViewed] = useState({}); // id -> true if image viewed
+  const [viewed, setViewed] = useState({});
   const [stats, setStats] = useState({ total: 0, pending: 0, under_review: 0, done: 0, approved: 0, rejected: 0 });
 
   const getToken = () => {
     try { return localStorage.getItem('token'); } catch { return null; }
   };
 
+  // Capture token from URL after OAuth redirect
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const token = searchParams.get("token");
+    if (token) {
+      localStorage.setItem("token", token);
+
+      // Clean URL
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+
+      // Verify role
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload.role !== "admin") {
+          alert("You are not authorized to access the Admin Dashboard");
+          window.location.href = "/";
+        }
+      } catch {
+        console.error("Invalid token");
+      }
+    }
+  }, []);
+
   const fetchQueue = async () => {
     const token = getToken();
-    if (!token) return;
+    if (!token) { setError("Not authenticated"); return; }
     setLoading(true);
     setError(null);
     try {
@@ -48,7 +72,7 @@ const AdminDashboard = () => {
       });
       const data = await res.json();
       if (res.ok) setStats(data);
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -80,7 +104,7 @@ const AdminDashboard = () => {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/content/admin/review/${itemId}` , {
+      const res = await fetch(`${API_BASE_URL}/content/admin/review/${itemId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -113,7 +137,7 @@ const AdminDashboard = () => {
         <a href="#" className="hover:underline">Contact</a>
       </nav>
       <button
-        onClick={async () => { try { localStorage.removeItem('token'); } catch {}; window.location.href = '/'; }}
+        onClick={() => { localStorage.removeItem('token'); window.location.href = '/'; }}
         className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
       >
         Sign Out
@@ -121,7 +145,7 @@ const AdminDashboard = () => {
     </header>
   );
 
-  const StatCard = ({ title, value, change, iconColor, statusColor }) => (
+  const StatCard = ({ title, value, change, statusColor }) => (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 flex-1 min-w-[150px] md:min-w-[180px]">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-medium text-blue-600">{title}</h3>
@@ -212,6 +236,7 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
+
       {previewUrl && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-white p-4 rounded-xl max-w-4xl w-[90%]">
@@ -228,5 +253,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-

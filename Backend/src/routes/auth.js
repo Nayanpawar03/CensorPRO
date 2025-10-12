@@ -20,7 +20,7 @@ router.get(
   passport.authenticate("google", { session: false, failureRedirect: "/auth/failure" }),
   (req, res) => {
     const token = signToken(req.user);
-    res.redirect(`${FRONTEND_URL}/Dashboard#?token=${token}`);
+    res.redirect(`${FRONTEND_URL}/Dashboard?token=${token}`);
   }
 );
 
