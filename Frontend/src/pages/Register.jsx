@@ -49,7 +49,7 @@ const Register = () => {
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Registration failed');
       setMessage('Registration successful');
       if (data.token) {
-        try { localStorage.setItem('token', data.token); } catch {}
+        try { localStorage.setItem('token', data.token); } catch { }
       }
       navigate('/login', { replace: true });
     } catch (err) {
