@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route, Navigate } from "react-router-dom"
 import Home from "./pages/Home"
 import Register from "./pages/Register"
@@ -8,6 +8,9 @@ import AdminDashboard from "./pages/AdminDashboard"
 
 
 function App() {
+  useEffect(() => {
+    console.log('VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+  }, []);
   return (
     <>
       <Routes>
