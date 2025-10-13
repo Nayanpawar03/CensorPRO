@@ -1,8 +1,0 @@
-{
-  "app_settings": [
-    {
-      "name": "VITE_API_BASE_URL",
-      "value": "https://censorpro-backend-dpdkcpheebdrcpgt.centralindia-01.azurewebsites.net"
-    }
-  ]
-}

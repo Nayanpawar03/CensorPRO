@@ -11,10 +11,6 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const API_BASE_URL = useMemo(() => (
-    import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
-  ), []);
-
   const saveTokenAndRedirect = (token) => {
     try {
       localStorage.setItem('token', token);
@@ -46,10 +42,14 @@ const Login = () => {
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const payload = {
+        email: email,
+        password: password,
+      };
+      const res = await fetch(`/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Login failed');
@@ -63,7 +63,7 @@ const Login = () => {
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = `${API_BASE_URL}/auth/google`;
+    window.location.href = `/api/auth/google`;
   };
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-100 to-blue-200 flex flex-col">
@@ -87,7 +87,7 @@ const Login = () => {
           onClick={async () => {
             try { localStorage.removeItem('token'); } catch {}
             try {
-              await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' });
+              await fetch(`/api/auth/logout`, { method: 'POST' });
             } catch {}
             navigate('/', { replace: true });
           }}

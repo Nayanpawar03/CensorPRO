@@ -6,9 +6,6 @@ const Register = () => {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const API_BASE_URL = useMemo(() => (
-    import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
-  ), []);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -40,7 +37,7 @@ const Register = () => {
         email: formData.email,
         password: formData.password,
       };
-      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      const res = await fetch(`/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -60,7 +57,7 @@ const Register = () => {
   };
 
   const handleGoogleSignUp = () => {
-    window.location.href = `${API_BASE_URL}/auth/google`;
+    window.location.href = `/api/auth/google`;
   };
 
   return (
